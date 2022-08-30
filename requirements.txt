@@ -1,0 +1,7 @@
+pandas
+scikit-learn
+tensorflow-addons
+astropy
+pyvo
+scikit-image
+seaborn
