@@ -6,6 +6,63 @@ import seaborn as sns
 import os
 from matplotlib import pyplot as plt
 
+def violin_networks():
+    X = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
+    y_std = np.array([0, 1, 1, 0])
+    y_merged = np.array([[0, 1, 1, 0], [1, 1, 1, 0], [0, 1, 1, 1]])
+    epochs = []
+    model = []
+
+    # Train each of the networks 20 times
+    for i in range(20):
+        print(f'Starting training run {i}')
+        sn = StandardNetwork(0.1, True)
+        mn1 = MergedNetwork(0.1, np.array([0.34, 0.33, 0.33]), True)
+        mn2 = MergedNetwork(0.1, np.array([0.5, 0.25, 0.25]), True)
+        mn3 = MergedNetwork(0.1, np.array([0.25, 0.5, 0.25]), True)
+        mn4 = MergedNetwork(0.1, np.array([0.25, 0.25, 0.5]), True)
+
+        tmp_loss = sn.train(X, y_std, 10000)
+        epochs.append(len(tmp_loss))
+        model.append('Standard')
+
+        tmp_loss = mn1.train(X, y_merged, 10000)
+        epochs.append(len(tmp_loss))
+        model.append('Merged\nEven')
+
+        tmp_loss = mn2.train(X, y_merged, 10000)
+        epochs.append(len(tmp_loss))
+        model.append('Merged\nXOR')
+
+        tmp_loss = mn3.train(X, y_merged, 10000)
+        epochs.append(len(tmp_loss))
+        model.append('Merged\nNAND')
+
+        tmp_loss = mn4.train(X, y_merged, 10000)
+        epochs.append(len(tmp_loss))
+        model.append('Merged\nOR')
+        
+    epochs = np.array(epochs)
+    model = np.array(model)
+    
+    data = {
+        'Model': model,
+        'Epochs': epochs
+    }
+    df = pd.DataFrame(data)
+    sns.set(rc={'figure.figsize':(14,10)})
+    sns.set(font_scale = 2)
+    ax = sns.violinplot(x='Model', y='Epochs', data=df, cut=0, linewidth=3, scale='width', width=0.5)
+    
+    #ax.tick_params(axis='both', which='major', labelsize=12)
+    #ax.tick_params(axis='both', which='minor', labelsize=12)
+    #ax.set_ylabel('Epochs', labelpad=6, fontsize=14)
+    ax.set_xlabel('\nModel')
+    if not os.path.exists('../../plots/XOR/'):
+        os.makedirs('../../plots/XOR/')
+    plt.savefig('../../plots/XOR/XOR_violin_plot.eps', format='eps', bbox_inches="tight", pad_inches=0)
+    plt.close()
+
 def evaluate_networks():
     """This function is used to train standard neural networks
     as well as merged neural networks for application to the XOR daataset.
@@ -151,4 +208,4 @@ def gen_loss_plots():
     plt.close()
     
 if __name__ == '__main__':
-    gen_loss_plots()
+    violin_networks()
