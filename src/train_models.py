@@ -394,3 +394,91 @@ def train_aux_man(x_train, y_train, x_val, y_val, x_test, y_test,  run):
 
     best_model = keras.models.load_model(f"../../models/man_aux_model{run}.h5")
     return best_model.evaluate(x_test, test_labels)
+
+def train_wide(x_train_aux, x_train, y_train, x_val_aux, x_val, y_val, x_test_aux, x_test, y_test,  run):
+    """Construct, train and evaluate the wide network.
+    Parameters
+    ----------
+    x_train_aux : ndarray
+        The auxiliary engineered features for the training data.
+    x_train : ndarray
+        The training data.
+    y_train : ndarray
+        The class labels of the training data.
+    x_val_aux : ndarray
+        The auxiliary engineered features for the validation data.
+    x_val : ndarray
+        The validation data.
+    y_val : ndarray
+        The class labels of the validation data.
+    x_test_aux : ndarray
+        The auxiliary engineered features for the test data.
+    x_test : ndarray
+        The test data.
+    y_test : ndarray
+        The class labels of the test data.
+    run : integer
+        Indicates which training run this is.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing the accuracy and loss of the final network when evaluated on the test set.
+    """
+    
+    wide = construct_wide()
+
+    #Tensorboard setup
+    run_logdir = os.path.join(os.curdir, f"../../lr_logs/wide_run{run}")
+    # Create utility callbacks
+    early_stop = keras.callbacks.EarlyStopping(patience=5)
+    save = keras.callbacks.ModelCheckpoint(f"../../models/wide_model{run}.h5", save_best_only=True)
+    tensorboard = keras.callbacks.TensorBoard(run_logdir)
+
+    # Train network
+    train_log = wide.fit((x_train_aux, x_train), y_train, epochs=100,
+                    validation_data=((x_val_aux, x_val), y_val),
+                    callbacks=[early_stop, save, tensorboard])
+    
+    best_wide = keras.models.load_model(f"../../models/wide_model{run}.h5")
+    return best_wide.evaluate((x_test_aux, x_test), y_test)
+
+def construct_wide():
+    """Construct the wide network.
+    
+    Returns
+    -------
+    Model
+        The compiled TensorFlow model representing the network.
+    """
+
+    #Create wrapper for my convolutional layer
+    base_conv = partial(keras.layers.Conv2D, kernel_size=7, activation='relu', padding='same')
+    
+    #Define network
+    main_input = keras.layers.Input(shape=[150, 150, 1])
+    aux_input = keras.layers.Input(shape=[4])
+    conv0 = keras.layers.Conv2D(filters=64, kernel_size=14)(main_input)
+    pool1 = keras.layers.MaxPooling2D(2)(conv0)
+    conv1 = base_conv(filters=128)(pool1)
+    conv2 = base_conv(filters=128)(conv1)
+    pool2 = keras.layers.MaxPooling2D(2)(conv2)
+    conv3 = base_conv(filters=256)(pool2)
+    conv4 = base_conv(filters=256)(conv3)
+    pool3 = keras.layers.MaxPooling2D(2)(conv4)
+    flatten = keras.layers.Flatten()(pool3)
+    concat = keras.layers.concatenate([aux_input, flatten])
+    dense1 = keras.layers.Dense(units=150, activation='elu', kernel_initializer="he_normal")(concat)
+    drop1 = keras.layers.Dropout(0.5)(dense1)
+    dense2 = keras.layers.Dense(units=75, activation='elu', kernel_initializer="he_normal")(drop1)
+    drop2 = keras.layers.Dropout(0.5)(dense2)
+    output = keras.layers.Dense(units=4, activation='softmax')(drop2)
+    wide = keras.Model(inputs=[aux_input, main_input], outputs=[output])
+
+    # Compile network
+    optimizer = keras.optimizers.Nadam(learning_rate=0.0001)
+    wide.compile(loss="categorical_crossentropy",
+                optimizer=optimizer,
+                metrics=[keras.metrics.CategoricalAccuracy()])
+    
+    return wide
