@@ -425,7 +425,8 @@ def train_wide(x_train_aux, x_train, y_train, x_val_aux, x_val, y_val, x_test_au
     tuple
         A tuple containing the accuracy and loss of the final network when evaluated on the test set.
     """
-    
+    probe_dir('../../lr_logs/')
+    probe_dir('../../models/')
     wide = construct_wide()
 
     #Tensorboard setup
@@ -482,3 +483,53 @@ def construct_wide():
                 metrics=[keras.metrics.CategoricalAccuracy()])
     
     return wide
+
+def train_wide_man(x_train_aux, x_train, y_train, x_val_aux, x_val, y_val, x_test_aux, x_test, y_test,  run):
+    """Construct, train and evaluate the wide network.
+    This function is intended for use with the auxiliary features that have manually extracted labels added to them.
+    Parameters
+    ----------
+    x_train_aux : ndarray
+        The auxiliary engineered features for the training data.
+    x_train : ndarray
+        The training data.
+    y_train : ndarray
+        The class labels of the training data.
+    x_val_aux : ndarray
+        The auxiliary engineered features for the validation data.
+    x_val : ndarray
+        The validation data.
+    y_val : ndarray
+        The class labels of the validation data.
+    x_test_aux : ndarray
+        The auxiliary engineered features for the test data.
+    x_test : ndarray
+        The test data.
+    y_test : ndarray
+        The class labels of the test data.
+    run : integer
+        Indicates which training run this is.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing the accuracy and loss of the final network when evaluated on the test set.
+    """
+    probe_dir('../../lr_logs/')
+    probe_dir('../../models/')
+    wide = construct_wide()
+
+    #Tensorboard setup
+    run_logdir = os.path.join(os.curdir, f"../../lr_logs/man_wide_run{run}")
+    # Create utility callbacks
+    early_stop = keras.callbacks.EarlyStopping(patience=5)
+    save = keras.callbacks.ModelCheckpoint(f"../../models/man_wide_model{run}.h5", save_best_only=True)
+    tensorboard = keras.callbacks.TensorBoard(run_logdir)
+
+    # Train network
+    train_log = wide.fit((x_train_aux, x_train), y_train, epochs=100,
+                    validation_data=((x_val_aux, x_val), y_val),
+                    callbacks=[early_stop, save, tensorboard])
+    
+    best_wide = keras.models.load_model(f"../../models/man_wide_model{run}.h5")
+    return best_wide.evaluate((x_test_aux, x_test), y_test)
