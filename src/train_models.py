@@ -316,3 +316,81 @@ def construct_aux():
                   optimizer=optimizer,
                   metrics=metrics)
     return aux_cnn
+
+def train_aux_man(x_train, y_train, x_val, y_val, x_test, y_test,  run):
+    """Construct, train and evaluate the auxiliary network.
+    This function is intended for use with the auxiliary features that have manually extracted labels added to them.
+    Parameters
+    ----------
+    x_train : ndarray
+        The training data.
+    y_train : ndarray
+        The feature vectors corresponding to the training data.
+    x_val : ndarray
+        The validation data.
+    y_val : ndarray
+        The feature vectors corresponding to the validation data.
+    x_test : ndarray
+        The test data.
+    y_test : ndarray
+        The feature vectors corresponding to the test data.
+    run : integer
+        Indicates which training run this is.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing the MSE and loss of the final network when evaluated on the test set.
+    """
+    probe_dir('../../lr_logs/')
+    probe_dir('../../models/')
+    aux_cnn = construct_aux()
+    
+    #Tensorboard setup
+    run_logdir = os.path.join(os.curdir, f"../../lr_logs/man_aux_run{run}")
+    
+    # Create utility callbacks
+    early_stop = keras.callbacks.EarlyStopping(patience=5)
+    save = keras.callbacks.ModelCheckpoint(f"../../models/man_aux_model{run}.h5", save_best_only=True)
+    tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
+
+    y_train_bent = y_train[:, 0]
+    y_train_fr = y_train[:, 1]
+    y_train_cores = y_train[:, 2]
+    y_train_size = y_train[:, 3]
+    train_labels = {
+        'bent_out': y_train_bent,
+        'fr_out': y_train_fr,
+        'cores_out': y_train_cores,
+        'size_out': y_train_size
+    }
+    
+    y_val_bent = y_val[:, 0]
+    y_val_fr = y_val[:, 1]
+    y_val_cores = y_val[:, 2]
+    y_val_size = y_val[:, 3]
+    val_labels = {
+        'bent_out': y_val_bent,
+        'fr_out': y_val_fr,
+        'cores_out': y_val_cores,
+        'size_out': y_val_size
+    }
+    
+    y_test_bent = y_test[:, 0]
+    y_test_fr = y_test[:, 1]
+    y_test_cores = y_test[:, 2]
+    y_test_size = y_test[:, 3]
+    test_labels = {
+        'bent_out': y_test_bent,
+        'fr_out': y_test_fr,
+        'cores_out': y_test_cores,
+        'size_out': y_test_size
+    }
+    
+    # Train model
+    train_log = aux_cnn.fit(x_train, train_labels, epochs=100,
+                   validation_data=(x_val, val_labels),
+                   callbacks=[save, tensorboard_cb, early_stop])
+
+    best_model = keras.models.load_model(f"../../models/man_aux_model{run}.h5")
+    return best_model.evaluate(x_test, test_labels)

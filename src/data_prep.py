@@ -97,9 +97,6 @@ def norm_image(img):
 def construct_true_aux_mix():
     """
     Constructs auxiliary feature vectors that include the manually extracted auxiliary labels where possible.
-    
-    Returns:
-        ndarray: Returns the manually augmented auxiliary feature vectors.
     """
     if not os.path.exists('../../data/galaxy_X.npy'):
         warnings.warn('Galaxy data not found in data directory. Please ensure that you generate this data first.', RuntimeWarning)
@@ -135,7 +132,6 @@ def construct_true_aux_mix():
         os.makedirs('../../data/')
     
     np.save('../../data/galaxy_y_manual_aux.npy', y_man_aux)
-    return y_man_aux 
 
 def process_input(img, i):
     '''
@@ -859,5 +855,7 @@ if __name__ == '__main__':
     np.save('data/galaxy_y_val.npy', y_val)
     np.save('data/galaxy_X_test1.npy', X_test1)
     np.save('data/galaxy_y_test.npy', y_test)
+    
+    construct_true_aux_mix()
     
     
