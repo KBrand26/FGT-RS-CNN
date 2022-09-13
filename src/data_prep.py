@@ -62,8 +62,6 @@ def load_galaxy_data():
     np.save('data/galaxy_X.npy', X)
     np.save('data/galaxy_y.npy', y)
     np.save('data/galaxy_y_aux.npy', y_aux)
-    np.save('data/galaxy_X_aug.npy', X_aug)
-    np.save('data/galaxy_y_aug.npy', y_aug)
 
 def augment_galaxy_data(img, r=60):
     """
