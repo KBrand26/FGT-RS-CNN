@@ -2,9 +2,6 @@ from distutils.command.build import build
 import warnings
 import numpy as np
 import glob
-from astropy.io import fits
-from astropy.coordinates import SkyCoord
-import pyvo as vo
 import requests
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -12,7 +9,78 @@ from skimage.morphology import dilation, square
 from scipy.ndimage import binary_fill_holes
 from skimage.transform import rotate
 import os
+from astropy.io import fits
 import warnings
+from train_models import probe_dir
+from sklearn.model_selection import train_test_split
+
+def load_galaxy_data():
+    """
+    Loads the galaxy data and prepares the necessary npy files for use in model training and evaluation.
+    """
+    if not os.path.exists('FITS/'):
+        warnings.warn('Please download the FITS data from the Google Drive first', RuntimeWarning)
+        return
+    
+    rootdir = 'FITS/'
+    subdirs = ['BENT_NAT', 'BENT_WAT', 'COMP', 'FRI', 'FRII']
+    label_dict = {'BENT_NAT': [1, 0, 0, 0], 'BENT_WAT': [1, 0, 0, 0], 'COMP': [0, 1, 0, 0], 'FRI': [0, 0, 1, 0], 'FRII': [0, 0, 0, 1]}
+    
+    X = []
+    X_aug = []
+    y = []
+    y_aug = []
+    y_aux  = []
+    for sub in subdirs:
+        # Loop through directories
+        label = label_dict[sub]
+        files = glob.glob(rootdir + sub + '/*.fits')
+        for file in files:
+            # Read files, focus on center of image
+            if file == 'FITS/BENT_WAT/BENT_WAT_106.fits':
+                # File is corrupt
+                continue
+            img = fits.open(file)[0].data
+            focus = img[75:225, 75:225]
+            focus = (focus - 0)/1. # Data is read in as big endian which is incompatible with skimage. This calculation should not alter data, but fixes buffer type.
+            
+            # Extract features from sample
+            fr_ratio, inter_dist, gal_size, cores, core_frac, ratio, h_size, v_size, pb, threshed, rotated = process_input(focus, -1)
+            bent = 1 if pb else 0
+            feats = [bent, fr_ratio, cores, core_frac]
+            
+            X.append(focus)
+            y.append(label)
+            y_aux.append(feats)
+    # Save arrays
+    X = np.array(X)
+    y = np.array(y)
+    y_aux = np.array(y_aux)
+    
+    probe_dir('data/')
+    
+    np.save('data/galaxy_X.npy', X)
+    np.save('data/galaxy_y.npy', y)
+    np.save('data/galaxy_y_aux.npy', y_aux)
+    np.save('data/galaxy_X_aug.npy', X_aug)
+    np.save('data/galaxy_y_aug.npy', y_aug)
+
+def augment_galaxy_data(img, r=60):
+    """
+    This function is used to create additional, rotated copies of the given image.
+
+    Args:
+        img (ndarray): The image that has to be augmented.
+        r (int, optional): The interval between the angles used to rotate the image. Defaults to 60.
+
+    Returns:
+        list: A list containing the augmented samples after rotating the given image.
+    """    
+    augmented = []
+    for deg in range(0,360,r):
+        augmented.append(rotate(img.copy(),deg))
+        
+    return augmented
 
 def norm_image(img):
     """Perform normalization of a given image
@@ -30,10 +98,10 @@ def norm_image(img):
 
 def construct_true_aux_mix():
     """
-    Constructs auxiliary feature vectors that include the true auxiliary labels where possible.
+    Constructs auxiliary feature vectors that include the manually extracted auxiliary labels where possible.
     
     Returns:
-        ndarray: Returns the 'true' auxiliary feature vectors.
+        ndarray: Returns the manually augmented auxiliary feature vectors.
     """
     if not os.path.exists('../../data/galaxy_X.npy'):
         warnings.warn('Galaxy data not found in data directory. Please ensure that you generate this data first.', RuntimeWarning)
@@ -778,3 +846,20 @@ def potential_bent(v_size, h_size):
     ratio = h_size/v_size
 
     return 0.5 < ratio < 6.7 and 14 < v_size < 54
+
+if __name__ == '__main__':
+    load_galaxy_data()
+    X = np.load('data/galaxy_X.npy')
+    y = np.load('data/galaxy_y.npy')
+    
+    X_tmp_train, X_test1, y_tmp_train, y_test = train_test_split(X, y, test_size=0.1, train_size=0.9, random_state=42, shuffle=True, stratify=y)
+    X_train1, X_val1, y_train, y_val = train_test_split(X_tmp_train, y_tmp_train, test_size=0.11, train_size=0.89, random_state=42, shuffle=True, stratify=y_tmp_train)
+    
+    np.save('data/galaxy_X_train1.npy', X_train1)
+    np.save('data/galaxy_y_train.npy', y_train)
+    np.save('data/galaxy_X_val1.npy', X_val1)
+    np.save('data/galaxy_y_val.npy', y_val)
+    np.save('data/galaxy_X_test1.npy', X_test1)
+    np.save('data/galaxy_y_test.npy', y_test)
+    
+    
