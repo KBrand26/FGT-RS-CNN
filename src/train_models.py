@@ -703,3 +703,91 @@ def construct_merged(main_weight, aux_weight):
                     optimizer=optimizer,
                     metrics=metrics)
     return merged
+
+def train_merged_man(x_train, y_train, aux_y_train, x_val, y_val, aux_y_val, x_test, y_test, aux_y_test, main_weight, aux_weight, run):
+    """Construct, train and evaluate the merged network.
+    This function is intended for use with the auxiliary features that have manually extracted labels added to them.
+    Parameters
+    ----------
+    x_train : ndarray
+        The training data.
+    y_train : ndarray
+        The class labels of the training data.
+    aux_y_train : ndarray
+        The feature vector labels for the training data.
+    x_val : ndarray
+        The validation data.
+    y_val : ndarray
+        The class labels of the validation data.
+    aux_y_val : ndarray
+        The feature vector labels for the validation data.
+    x_test : ndarray
+        The test data.
+    y_test : ndarray
+        The class labels of the test data.
+    aux_y_test : ndarray
+        The feature vector labels for the test data.
+    main_weight : float
+        The weight of the main output in the network.
+    aux_weight : float
+        The weight of the auxiliary outputs in the network    
+    run : integer
+        Indicates which training run this is.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing the accuracy and loss of the final network when evaluated on the test set.
+    """
+    merged = construct_merged(main_weight, aux_weight)
+
+    #Tensorboard setup
+    run_logdir = os.path.join(os.curdir, f"../../lr_logs/man_merged_{main_weight}_{aux_weight}_run{run}")
+    
+    # Create utility callbacks
+    early_stop = keras.callbacks.EarlyStopping(patience=5)
+    save = keras.callbacks.ModelCheckpoint(f"../../models/man_merged_{main_weight}_{aux_weight}_model{run}.h5", save_best_only=True)
+    tensorboard = keras.callbacks.TensorBoard(run_logdir)
+
+    y_train_bent = aux_y_train[:, 0]
+    y_train_fr = aux_y_train[:, 1]
+    y_train_cores = aux_y_train[:, 2]
+    y_train_size = aux_y_train[:, 3]
+    train_labels = {
+        'main_out': y_train,
+        'bent_out': y_train_bent,
+        'fr_out': y_train_fr,
+        'cores_out': y_train_cores,
+        'size_out': y_train_size
+    }
+    
+    y_val_bent = aux_y_val[:, 0]
+    y_val_fr = aux_y_val[:, 1]
+    y_val_cores = aux_y_val[:, 2]
+    y_val_size = aux_y_val[:, 3]
+    val_labels = {
+        'main_out': y_val,
+        'bent_out': y_val_bent,
+        'fr_out': y_val_fr,
+        'cores_out': y_val_cores,
+        'size_out': y_val_size
+    }
+    
+    y_test_bent = aux_y_test[:, 0]
+    y_test_fr = aux_y_test[:, 1]
+    y_test_cores = aux_y_test[:, 2]
+    y_test_size = aux_y_test[:, 3]
+    test_labels = {
+        'main_out': y_test,
+        'bent_out': y_test_bent,
+        'fr_out': y_test_fr,
+        'cores_out': y_test_cores,
+        'size_out': y_test_size
+    }
+
+    train_log = merged.fit(x_train, train_labels, epochs=100,
+                   validation_data=(x_val, val_labels),
+                   callbacks=[early_stop, save, tensorboard])
+    
+    merged_cnn = keras.models.load_model(f"../../models/man_merged_{main_weight}_{aux_weight}_model{run}.h5")
+    return merged_cnn.evaluate(x_test, test_labels)
