@@ -791,3 +791,183 @@ def train_merged_man(x_train, y_train, aux_y_train, x_val, y_val, aux_y_val, x_t
     
     merged_cnn = keras.models.load_model(f"../../models/man_merged_{main_weight}_{aux_weight}_model{run}.h5")
     return merged_cnn.evaluate(x_test, test_labels)
+
+def train_multihead(x_train, y_train, aux_y_train, x_val, y_val, aux_y_val, x_test, y_test, aux_y_test, main_weight, aux_weight, run):
+    """Construct, train and evaluate the multiheaded network.
+    Parameters
+    ----------
+    x_train : ndarray
+        The training data.
+    y_train : ndarray
+        The class labels of the training data.
+    aux_y_train : ndarray
+        The feature vector labels for the training data.
+    x_val : ndarray
+        The validation data.
+    y_val : ndarray
+        The class labels of the validation data.
+    aux_y_val : ndarray
+        The feature vector labels for the validation data.
+    x_test : ndarray
+        The test data.
+    y_test : ndarray
+        The class labels of the test data.
+    aux_y_test : ndarray
+        The feature vector labels for the test data.
+    main_weight : float
+        The weight of the main head in the network.
+    aux_weight : float
+        The weight of the auxiliary head in the network    
+    run : integer
+        Indicates which training run this is.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing the recorderd metrics for the final network when evaluated on the test set.
+    """
+    multihead = construct_multihead(main_weight, aux_weight)
+
+    #Tensorboard setup
+    run_logdir = os.path.join(os.curdir, f"../../lr_logs/multihead_{main_weight}_{aux_weight}_run{run}")
+    
+    # Create utility callbacks
+    early_stop = keras.callbacks.EarlyStopping(patience=5)
+    save = keras.callbacks.ModelCheckpoint(f"../../models/multihead_{main_weight}_{aux_weight}_model{run}.h5", save_best_only=True)
+    tensorboard = keras.callbacks.TensorBoard(run_logdir)
+    
+    y_train_bent = aux_y_train[:, 0]
+    y_train_fr = aux_y_train[:, 1]
+    y_train_cores = aux_y_train[:, 2]
+    y_train_size = aux_y_train[:, 3]
+    train_labels = {
+        'main_out': y_train,
+        'bent_out': y_train_bent,
+        'fr_out': y_train_fr,
+        'cores_out': y_train_cores,
+        'size_out': y_train_size
+    }
+    
+    y_val_bent = aux_y_val[:, 0]
+    y_val_fr = aux_y_val[:, 1]
+    y_val_cores = aux_y_val[:, 2]
+    y_val_size = aux_y_val[:, 3]
+    val_labels = {
+        'main_out': y_val,
+        'bent_out': y_val_bent,
+        'fr_out': y_val_fr,
+        'cores_out': y_val_cores,
+        'size_out': y_val_size
+    }
+    
+    y_test_bent = aux_y_test[:, 0]
+    y_test_fr = aux_y_test[:, 1]
+    y_test_cores = aux_y_test[:, 2]
+    y_test_size = aux_y_test[:, 3]
+    test_labels = {
+        'main_out': y_test,
+        'bent_out': y_test_bent,
+        'fr_out': y_test_fr,
+        'cores_out': y_test_cores,
+        'size_out': y_test_size
+    }
+
+    train_log = multihead.fit(x_train, train_labels, epochs=100,
+                   validation_data=(x_val, val_labels),
+                   callbacks=[early_stop, save, tensorboard])
+    
+    multihead_cnn = keras.models.load_model(f"../../models/multihead_{main_weight}_{aux_weight}_model{run}.h5")
+    return multihead_cnn.evaluate(x_test, test_labels)
+
+def construct_multihead(main_weight, aux_weight):
+    """Construct the multiheaded network.
+    Parameters
+    ----------
+    main_weight : float
+        The weight of the main head in the network.
+    aux_weight : float
+        The weight of the auxiliary head in the network
+    
+    Returns
+    -------
+    Model
+        The compiled TensorFlow model representing the network.
+    """
+    
+    #Create wrapper for my convolutional layer
+    base_conv = partial(keras.layers.Conv2D, kernel_size=7, activation='relu', padding='same')
+
+    #Input layers
+    cnn_input = keras.layers.Input(shape=[150, 150, 1])
+    conv0 = base_conv(filters=64, kernel_size=14)(cnn_input)
+    pool0 = keras.layers.MaxPooling2D(2)(conv0)
+
+    #First convolutional block
+    conv1 = base_conv(filters=128)(pool0)
+    conv2 = base_conv(filters=128)(conv1)
+    pool1 = keras.layers.MaxPooling2D(2)(conv2)
+    #Second convolutional block
+    conv3 = base_conv(filters=256)(pool1)
+    conv4 = base_conv(filters=256)(conv3)
+    pool2 = keras.layers.MaxPooling2D(2)(conv4)
+
+    #Set up for fully connected blocks
+    flatten = keras.layers.Flatten()(pool2)
+
+    #Build auxiliary head of the network
+    # First auxiliary dense layer
+    aux_dense0 = keras.layers.Dense(150, activation='elu', kernel_initializer="he_normal")(flatten)
+    aux_drop0 = keras.layers.Dropout(0.5)(aux_dense0)
+
+    # Second auxiliary dense layer
+    aux_dense1 = keras.layers.Dense(75, activation='elu', kernel_initializer="he_normal")(aux_drop0)
+    aux_drop1 = keras.layers.Dropout(0.5)(aux_dense1)
+
+    #Auxiliary Outputs
+    bent_out = keras.layers.Dense(units=1, activation='sigmoid', name="bent_out")(aux_drop1)
+    fr_out = keras.layers.Dense(units=1, activation='sigmoid', name="fr_out")(aux_drop1)
+    cores_out = keras.layers.Dense(units=1, activation='sigmoid', name="cores_out")(aux_drop1)
+    size_out = keras.layers.Dense(units=1, activation='sigmoid', name="size_out")(aux_drop1)
+
+    #Build main head of the network
+    # First auxiliary dense layer
+    main_dense0 = keras.layers.Dense(150, activation='elu', kernel_initializer="he_normal")(flatten)
+    main_drop0 = keras.layers.Dropout(0.5)(main_dense0)
+
+    # Second auxiliary dense layer
+    main_dense1 = keras.layers.Dense(75, activation='elu', kernel_initializer="he_normal")(main_drop0)
+    main_drop1 = keras.layers.Dropout(0.5)(main_dense1)
+
+    #Output
+    main_out = keras.layers.Dense(units=4, activation='softmax', name="main_out")(main_drop1)
+
+    multihead = keras.Model(inputs=[cnn_input], outputs=[main_out, bent_out, fr_out, cores_out, size_out])
+
+    loss = {
+        'main_out': 'categorical_crossentropy',
+        'bent_out': 'binary_crossentropy',
+        'fr_out': 'mean_squared_error',
+        'cores_out': 'mean_squared_error',
+        'size_out': 'mean_squared_error'
+    }
+    metrics = {
+        'main_out': keras.metrics.CategoricalAccuracy(),
+        'bent_out': keras.metrics.CategoricalAccuracy(),
+        'fr_out': 'mean_absolute_error',
+        'cores_out': 'mean_absolute_error',
+        'size_out': 'mean_absolute_error'
+    }
+    weights = {
+        'main_out': main_weight,
+        'bent_out': aux_weight/4,
+        'fr_out': aux_weight/4,
+        'cores_out': aux_weight/4,
+        'size_out': aux_weight/4
+    }
+    optimizer = keras.optimizers.Nadam(learning_rate=0.0001)
+
+    multihead.compile(loss=loss,
+                    loss_weights=weights,
+                    optimizer=optimizer,
+                    metrics=metrics)
+    return multihead
