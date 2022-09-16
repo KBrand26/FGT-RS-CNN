@@ -45,7 +45,7 @@ def load_galaxy_data():
             focus = (focus - 0)/1. # Data is read in as big endian which is incompatible with skimage. This calculation should not alter data, but fixes buffer type.
             
             # Extract features from sample
-            fr_ratio, inter_dist, gal_size, cores, core_frac, ratio, h_size, v_size, pb, threshed, rotated = process_input(focus, -1)
+            fr_ratio, cores, core_frac, pb = process_input(focus, -1)
             bent = 1 if pb else 0
             feats = [bent, fr_ratio, cores, core_frac]
             
@@ -98,17 +98,17 @@ def construct_true_aux_mix():
     """
     Constructs auxiliary feature vectors that include the manually extracted auxiliary labels where possible.
     """
-    if not os.path.exists('../../data/galaxy_X.npy'):
+    if not os.path.exists('data/galaxy_X.npy'):
         warnings.warn('Galaxy data not found in data directory. Please ensure that you generate this data first.', RuntimeWarning)
         return
     
-    X = np.load('../../data/galaxy_X.npy')
+    X = np.load('data/galaxy_X.npy')
     
-    if not os.path.exists('../../aux_data/features.txt'):
+    if not os.path.exists('aux_data/features.txt'):
         warnings.warn('Manually extracted labels not found in aux_data directory. Please ensure that you generate this data first.', RuntimeWarning)
         return
     
-    manual_df = pd.read_csv('../../aux_data/features.txt')
+    manual_df = pd.read_csv('aux_data/features.txt')
     y_man_aux = []
     disagree = 0
     
@@ -128,10 +128,10 @@ def construct_true_aux_mix():
     
     y_man_aux = np.array(y_man_aux)
     
-    if not os.path.exists('../../data/'):
-        os.makedirs('../../data/')
+    if not os.path.exists('data/'):
+        os.makedirs('data/')
     
-    np.save('../../data/galaxy_y_manual_aux.npy', y_man_aux)
+    np.save('data/galaxy_y_manual_aux.npy', y_man_aux)
 
 def process_input(img, i):
     '''
@@ -151,7 +151,7 @@ def process_input(img, i):
     '''
     # Preprocess image
     img = norm_image(img)        
-    threshed, basic = thresh_image(img, testing = False)
+    threshed, basic = thresh_image(img)
     
     # Extract cores and other important information regarding the cores
     cores, inter_dist, core_pixels, total_pixels = detect_cores(img, threshed)
@@ -842,6 +842,7 @@ def potential_bent(v_size, h_size):
     return 0.5 < ratio < 6.7 and 14 < v_size < 54
 
 if __name__ == '__main__':
+    '''
     load_galaxy_data()
     X = np.load('data/galaxy_X.npy')
     y = np.load('data/galaxy_y.npy')
@@ -855,6 +856,7 @@ if __name__ == '__main__':
     np.save('data/galaxy_y_val.npy', y_val)
     np.save('data/galaxy_X_test1.npy', X_test1)
     np.save('data/galaxy_y_test.npy', y_test)
+    '''
     
     construct_true_aux_mix()
     
