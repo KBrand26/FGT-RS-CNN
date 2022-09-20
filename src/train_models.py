@@ -972,7 +972,7 @@ def construct_multihead(main_weight, aux_weight):
                     metrics=metrics)
     return multihead
 
-def train_ultihead_man(x_train, y_train, aux_y_train, x_val, y_val, aux_y_val, x_test, y_test, aux_y_test, main_weight, aux_weight, run):
+def train_multihead_man(x_train, y_train, aux_y_train, x_val, y_val, aux_y_val, x_test, y_test, aux_y_test, main_weight, aux_weight, run):
     """Construct, train and evaluate the multiheaded network.
     This function is intended for use with the auxiliary features that have manually extracted labels added to them.
     Parameters
