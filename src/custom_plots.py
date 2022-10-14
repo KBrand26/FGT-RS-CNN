@@ -3,6 +3,8 @@ import tensorflow as tf
 import seaborn as sns
 import numpy as np
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+from os.path import exists
+from os import getcwd, mkdir
 
 def extract_class_pred(preds):
     """This function is used to extract the desired predictions from the outputs of a trained model
@@ -64,6 +66,13 @@ def gen_violin_plot(df, x, y, hue, file, split=True, only_data=False, limit=Fals
         
     # Add space between x ticks and label
     ax.set_xlabel('\nModel')
+    
+    if not exists("../plots/"):
+        if getcwd().split("/")[-1] == "src":
+            mkdir("../plots/")
+        else:
+            print("This function should only be called from the src directory")
+            
     
     # Save plot
     location = '../plots/' + file
