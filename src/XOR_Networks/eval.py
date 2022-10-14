@@ -5,6 +5,7 @@ import pandas as pd
 import seaborn as sns
 import os
 from matplotlib import pyplot as plt
+import argparse
 
 def violin_networks():
     X = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
@@ -208,4 +209,12 @@ def gen_loss_plots():
     plt.close()
     
 if __name__ == '__main__':
-    violin_networks()
+    parser = argparse.ArgumentParser(description="Train and evaluate XOR networks")
+    parser.add_argument('-l', "--loss", action="store_true", help="Generate loss curves")
+    args = parser.parse_args()
+    config = vars(args)
+    
+    if config["loss"]:
+        gen_loss_plots()
+    else:
+        violin_networks()

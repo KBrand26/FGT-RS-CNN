@@ -1,9 +1,7 @@
-from distutils.command.build import build
 import warnings
 import numpy as np
 import glob
-import requests
-from matplotlib import pyplot as plt
+import argparse
 import pandas as pd
 from skimage.morphology import dilation, square
 from scipy.ndimage import binary_fill_holes
@@ -19,7 +17,7 @@ def load_galaxy_data():
     Loads the galaxy data and prepares the necessary npy files for use in model training and evaluation.
     """
     if not os.path.exists('FITS/'):
-        warnings.warn('Please download the FITS data from the Google Drive first', RuntimeWarning)
+        warnings.warn('Please download the FITS data from Zenodo first', RuntimeWarning)
         return
     
     rootdir = 'FITS/'
@@ -842,22 +840,28 @@ def potential_bent(v_size, h_size):
     return 0.5 < ratio < 6.7 and 14 < v_size < 54
 
 if __name__ == '__main__':
-    '''
-    load_galaxy_data()
-    X = np.load('data/galaxy_X.npy')
-    y = np.load('data/galaxy_y.npy')
+    parser = argparse.ArgumentParser(description="Prepare data for experiments")
+    parser.add_argument('-d', "--data", action="store_true",
+                        help="""Extract the various images and class labels from the dataset and split them into
+                                train, validation and test sets.""")
+    args = parser.parse_args()
+    config = vars(args)
     
-    X_tmp_train, X_test1, y_tmp_train, y_test = train_test_split(X, y, test_size=0.1, train_size=0.9, random_state=42, shuffle=True, stratify=y)
-    X_train1, X_val1, y_train, y_val = train_test_split(X_tmp_train, y_tmp_train, test_size=0.11, train_size=0.89, random_state=42, shuffle=True, stratify=y_tmp_train)
-    
-    np.save('data/galaxy_X_train1.npy', X_train1)
-    np.save('data/galaxy_y_train.npy', y_train)
-    np.save('data/galaxy_X_val1.npy', X_val1)
-    np.save('data/galaxy_y_val.npy', y_val)
-    np.save('data/galaxy_X_test1.npy', X_test1)
-    np.save('data/galaxy_y_test.npy', y_test)
-    '''
-    
-    construct_true_aux_mix()
+    if config['data']:
+        load_galaxy_data()
+        X = np.load('data/galaxy_X.npy')
+        y = np.load('data/galaxy_y.npy')
+        
+        X_tmp_train, X_test1, y_tmp_train, y_test = train_test_split(X, y, test_size=0.1, train_size=0.9, random_state=42, shuffle=True, stratify=y)
+        X_train1, X_val1, y_train, y_val = train_test_split(X_tmp_train, y_tmp_train, test_size=0.11, train_size=0.89, random_state=42, shuffle=True, stratify=y_tmp_train)
+        
+        np.save('data/galaxy_X_train1.npy', X_train1)
+        np.save('data/galaxy_y_train.npy', y_train)
+        np.save('data/galaxy_X_val1.npy', X_val1)
+        np.save('data/galaxy_y_val.npy', y_val)
+        np.save('data/galaxy_X_test1.npy', X_test1)
+        np.save('data/galaxy_y_test.npy', y_test)
+        
+        construct_true_aux_mix()
     
     
