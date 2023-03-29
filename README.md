@@ -2,7 +2,7 @@
 This project consists of training various neural networks for the the morphological classification of radio galaxies. In this repository we investigate possible benefits of standardising rotations and guiding neural networks to look for specific features. Most of these networks were built in TensorFlow, but the XOR networks were built from scratch in Python.
 
 # How to prepare the data
-1. Download dataset from (TODO: INSERT ZENODO LINK) and unpack into FITS directory.
+1. Download dataset from https://doi.org/10.5281/zenodo.7645530 and unpack into FITS directory.
 2. Execute the following command to process the data in preparation for experimentation:
 ```
 python src/data_prep.py -d
